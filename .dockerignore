@@ -1,0 +1,17 @@
+.git
+.next
+node_modules
+dist
+.wrangler
+.openai
+build
+db
+drizzle
+examples
+worker
+vite.config.ts
+drizzle.config.ts
+*.log
+.env*
+!.env.example
+tests
