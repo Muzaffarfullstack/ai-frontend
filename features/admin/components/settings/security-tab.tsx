@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { localizedApiError, type Translate } from "@/lib/api-client";
@@ -69,8 +69,7 @@ export function SecurityTab({
         } catch (reason) {
           setError(localizedApiError(reason, t));
           return false;
-        } finally {
-          }
+        }
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [form, initial, onSaved, registerSave],
@@ -122,7 +121,7 @@ export function SecurityTab({
 
       <SettingsSection
         title="Kirish himoyasi"
-        subtitle="Notoâ€˜gâ€˜ri urinishlar va bloklash siyosati."
+        subtitle="Noto‘g‘ri urinishlar va bloklash siyosati."
       >
         <div className="settings-form-grid">
           <SettingsNumberField
@@ -154,13 +153,13 @@ export function SecurityTab({
         </div>
         <p className="settings-hint">
           Limit oshganda hisob bloklanadi va qayta urinish bloklash muddati
-          tugagach mumkin boâ€˜ladi.
+          tugagach mumkin bo‘ladi.
         </p>
       </SettingsSection>
 
       <SettingsSection
         title="Admin himoyasi"
-        subtitle="Administrator hisoblariga qoâ€˜shimcha himoya."
+        subtitle="Administrator hisoblariga qo‘shimcha himoya."
       >
         <div className="settings-switch-list">
           <SettingsSwitch
@@ -173,7 +172,7 @@ export function SecurityTab({
       </SettingsSection>
 
       <SettingsSection
-        title="Audit va maâ€™lumot"
+        title="Audit va ma’lumot"
         subtitle="Harakatlar jurnali va saqlash muddati."
       >
         <div className="settings-switch-list">

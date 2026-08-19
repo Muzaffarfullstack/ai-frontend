@@ -407,6 +407,11 @@
   display: grid;
 }
 
+.settings-channel-list {
+  display: grid;
+  gap: 2px;
+}
+
 .settings-channel {
   display: flex;
   align-items: center;

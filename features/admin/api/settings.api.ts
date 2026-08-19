@@ -15,7 +15,7 @@ import type {
 export const getAdminSettings = () =>
   apiRequest<AdminSettingsDTO>("/admin/settings");
 
-export const getAdminStatus = () => apiRequest<AdminStatusDTO>("/status");
+export const getAdminStatus = () => apiRequest<AdminStatusDTO>("/admin/status");
 
 export const patchSettingsSection = <T>(
   section: string,

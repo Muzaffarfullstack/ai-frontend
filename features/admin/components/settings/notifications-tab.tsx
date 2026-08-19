@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { localizedApiError, type Translate } from "@/lib/api-client";
@@ -22,7 +22,7 @@ const MATRIX_ROWS: Array<{
 }> = [
   {
     event: "registration",
-    label: "Roâ€˜yxatdan oâ€˜tish",
+    label: "Ro‘yxatdan o‘tish",
     columns: [
       { key: "email", label: "Email" },
       { key: "in_app", label: "In-app" },
@@ -131,8 +131,7 @@ export function NotificationsTab({
         } catch (reason) {
           setError(localizedApiError(reason, t));
           return false;
-        } finally {
-          }
+        }
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [form, initial, onSaved, registerSave],
@@ -157,7 +156,7 @@ export function NotificationsTab({
           <div className="settings-channel">
             <SettingsSwitch
               label="Email"
-              description="SMTP orqali xat joâ€˜natish"
+              description="SMTP orqali xat jo‘natish"
               checked={form.email_channel_enabled}
               onChange={(email_channel_enabled) =>
                 patch({ email_channel_enabled })
@@ -196,7 +195,7 @@ export function NotificationsTab({
         </div>
         {!providers.sms_configured && (
           <p className="settings-hint">
-            SMS kanalini yoqishdan oldin provayderni sozlang â€” aks holda
+            SMS kanalini yoqishdan oldin provayderni sozlang — aks holda
             backend sozlashni rad etadi.
           </p>
         )}

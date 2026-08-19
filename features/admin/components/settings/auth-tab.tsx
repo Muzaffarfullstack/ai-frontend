@@ -245,6 +245,30 @@ export function AuthTab({
           />
         </div>
       </SettingsSection>
+
+      <SettingsSection
+        title="Ro‘yxatdan o‘tish qoidalari"
+        subtitle="Ro‘yxatdan o‘tishda qo‘llaniladigan qo‘shimcha talablar."
+      >
+        <div className="settings-switch-list">
+          <SettingsSwitch
+            label="Islomiy ism talab qilinadi"
+            description="Ro‘yxatdan o‘tishda ism islomiy talablarga mos bo‘lishi tekshiriladi"
+            checked={form.is_islamic_name_required}
+            onChange={(is_islamic_name_required) =>
+              patch({ is_islamic_name_required })
+            }
+          />
+          <SettingsSwitch
+            label="Marketing roziligi majburiy"
+            description="Ro‘yxatdan o‘tishda marketing roziligini tasdiqlash majburiy bo‘ladi"
+            checked={form.marketing_consent_required}
+            onChange={(marketing_consent_required) =>
+              patch({ marketing_consent_required })
+            }
+          />
+        </div>
+      </SettingsSection>
     </>
   );
 }
