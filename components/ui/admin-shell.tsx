@@ -14,7 +14,7 @@ const adminNavigation = [
   ["ASOSIY", "/admin/users", "admin.users", "user"],
   ["TA’LIM", "/admin/courses", "admin.courses", "book"],
   ["TA’LIM", "/admin/videos", "admin.videos", "video"],
-  ["TA’LIM", "/admin/prompt-models", "admin.promptModels", "sparkles"],
+  ["AI TIZIMI", "/admin/ai-assistant", "admin.promptModels", "sparkles"],
   ["TIJORAT", "/admin/orders", "admin.orders", "bag"],
   ["TIJORAT", "/admin/payments", "admin.payments", "receipt"],
   ["TIJORAT", "/admin/enrollments", "admin.enrollments", "shield"],
@@ -28,7 +28,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const { t } = useLocale();
   const { user } = useAuth();
   const current = adminNavigation.find(([, href]) => href === "/admin" ? path === href : path.startsWith(href));
-  const labelFor = (label: (typeof adminNavigation)[number][2]) => label === "admin.gallery" ? "Landing galereyasi" : label === "admin.promptModels" ? "AI modellari" : t(label);
+  const labelFor = (label: (typeof adminNavigation)[number][2]) => label === "admin.gallery" ? "Landing galereyasi" : label === "admin.promptModels" ? "AI yordamchi" : t(label);
 
   return (
     <RequireAuth admin>

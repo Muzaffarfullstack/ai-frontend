@@ -295,7 +295,10 @@ export interface PromptTargetCapability {
   mediaType: PromptMediaType;
   description: string;
   enabled: boolean;
+  recommended: boolean;
   profileVersion: string;
+  capabilities: Record<string, unknown>;
+  formSchema: Array<Record<string, unknown>>;
   aspectRatios: string[];
   durationSeconds: number[];
   supportsReferenceImages: boolean;
@@ -337,7 +340,7 @@ export interface PromptBuildInput {
   mediaType: PromptMediaType;
   targetKey: string;
   idea: string;
-  outputLanguage: "uz" | "ru" | "en";
+  outputLanguage: "en";
   aspectRatio?: string;
   style?: string;
   detailLevel: "standard" | "high";
@@ -539,7 +542,10 @@ type PromptTargetApi = {
   media_type: PromptMediaType;
   description: string;
   enabled: boolean;
+  recommended: boolean;
   profile_version: string;
+  capabilities: Record<string, unknown>;
+  form_schema: Array<Record<string, unknown>>;
   aspect_ratios: string[];
   duration_seconds: number[];
   supports_reference_images: boolean;
@@ -597,7 +603,10 @@ export async function getPromptTargets(): Promise<PromptTargetCapability[]> {
     mediaType: item.media_type,
     description: item.description,
     enabled: item.enabled,
+    recommended: item.recommended,
     profileVersion: item.profile_version,
+    capabilities: item.capabilities,
+    formSchema: item.form_schema,
     aspectRatios: item.aspect_ratios,
     durationSeconds: item.duration_seconds,
     supportsReferenceImages: item.supports_reference_images,
@@ -625,6 +634,10 @@ export async function buildPrompt(input: PromptBuildInput): Promise<PromptBuildR
       idempotency_key: input.idempotencyKey,
     }),
   });
+  return mapPromptBuild(result);
+}
+
+function mapPromptBuild(result: PromptBuildApi): PromptBuildResult {
   return {
     id: result.id,
     mediaType: result.media_type,
@@ -664,6 +677,44 @@ export async function buildPrompt(input: PromptBuildInput): Promise<PromptBuildR
     warnings: result.warnings,
     createdAt: result.created_at,
   };
+}
+
+export async function transformPrompt(
+  id: string,
+  action: "improve" | "shorten" | "rebuild",
+  overrides: Record<string, unknown> = {},
+): Promise<PromptBuildResult> {
+  const result = await apiRequest<PromptBuildApi>(`/prompt-builder/${id}/${action}`, {
+    method: "POST",
+    body: JSON.stringify({ idempotency_key: crypto.randomUUID(), overrides }),
+  });
+  return mapPromptBuild(result);
+}
+
+export interface PromptHistoryItem {
+  id: string;
+  title: string;
+  mediaType: PromptMediaType;
+  targetKey: string;
+  targetLabel: string;
+  profileVersion: string;
+  promptPreview: string;
+  status: string;
+  createdAt: string;
+}
+
+export async function getPromptHistory(): Promise<PromptHistoryItem[]> {
+  const response = await apiRequest<{items: Array<{
+    id: string; title: string; media_type: PromptMediaType; target_key: string;
+    target_label: string; profile_version: string; prompt_preview: string;
+    status: string; created_at: string;
+  }>}>("/prompt-builder/history");
+  return response.items.map((item) => ({
+    id: item.id, title: item.title, mediaType: item.media_type,
+    targetKey: item.target_key, targetLabel: item.target_label,
+    profileVersion: item.profile_version, promptPreview: item.prompt_preview,
+    status: item.status, createdAt: item.created_at,
+  }));
 }
 
 export async function apiBlob(path: string): Promise<Blob> {

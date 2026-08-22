@@ -72,7 +72,9 @@ export function GeneralTab({
     try {
       const result = await uploadSettingsLogo(file);
       setLogoUrl(result.logo_url);
-      onDirtyChange(dirtyFieldCount(initial, form));
+      // Logo uploads are saved immediately. Keep the parent snapshot in sync so
+      // switching tabs and returning does not restore the previous preview.
+      onSaved({ ...initial, logo_url: result.logo_url });
     } catch (reason) {
       setError(localizedApiError(reason, t));
     } finally {

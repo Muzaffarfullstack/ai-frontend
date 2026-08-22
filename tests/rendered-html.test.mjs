@@ -17,6 +17,21 @@ test("keeps authenticated API requests configurable", async () => {
   assert.match(api, /credentials:\s*"include"/);
 });
 
+test("connects all admin settings tabs to real APIs and retains uploaded logo state", async () => {
+  const page = await readFile(new URL("../features/admin/components/settings-page.tsx", import.meta.url), "utf8");
+  const api = await readFile(new URL("../features/admin/api/settings.api.ts", import.meta.url), "utf8");
+  const general = await readFile(new URL("../features/admin/components/settings/general-tab.tsx", import.meta.url), "utf8");
+
+  for (const tab of ["general", "auth", "learning", "payment", "media", "notifications", "security", "integrations"]) {
+    assert.match(page, new RegExp(`id: ["']${tab}["']`));
+  }
+  assert.match(api, /apiRequest<AdminSettingsDTO>\(["']\/admin\/settings["']\)/);
+  assert.match(api, /`\/admin\/settings\/\$\{section\}`/);
+  assert.match(api, /\/admin\/settings\/feature-flags/);
+  assert.match(api, /\/admin\/status/);
+  assert.match(general, /onSaved\(\{ \.\.\.initial, logo_url: result\.logo_url \}\)/);
+});
+
 test("restricts optimized images to the configured public media host", async () => {
   const config = await readFile(new URL("../next.config.ts", import.meta.url), "utf8");
   const media = await readFile(new URL("../components/media-image.tsx", import.meta.url), "utf8");

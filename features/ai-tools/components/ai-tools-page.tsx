@@ -1,18 +1,21 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { AppIcon, type AppIconName } from "@/components/ui";
 import { useLocale } from "@/components/providers";
 import {
   ApiError,
   buildPrompt,
   getPromptTargets,
+  transformPrompt,
   type PromptBuildResult,
   type PromptMediaType,
   type PromptTargetCapability,
 } from "@/lib/api-client";
 
-type ResultTab = "prompt" | "constraints" | "shots";
+type ResultTab = "prompt" | "constraints" | "sections" | "shots";
+type ModelFilter = "all" | PromptMediaType;
 
 const anatomy: Array<[string, AppIconName]> = [
   ["subject", "file"], ["composition", "image"], ["camera", "camera"],
@@ -80,6 +83,10 @@ export default function AiToolsPage() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [copied, setCopied] = useState(false);
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
+  const [modelQuery, setModelQuery] = useState("");
+  const [modelFilter, setModelFilter] = useState<ModelFilter>("all");
+  const [actionBusy, setActionBusy] = useState<"improve" | "shorten" | "rebuild" | null>(null);
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     getPromptTargets()
@@ -101,6 +108,22 @@ export default function AiToolsPage() {
     [mediaType, targets],
   );
   const selectedTarget = targets.find((target) => target.key === targetKey);
+  const pickerTargets = useMemo(() => {
+    const query = modelQuery.trim().toLocaleLowerCase();
+    return targets.filter((target) =>
+      (modelFilter === "all" || target.mediaType === modelFilter) &&
+      (!query || `${target.label} ${target.description}`.toLocaleLowerCase().includes(query)),
+    );
+  }, [modelFilter, modelQuery, targets]);
+
+  useEffect(() => {
+    if (!modelPickerOpen) return;
+    const close = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setModelPickerOpen(false);
+    };
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [modelPickerOpen]);
 
   function selectTarget(target: PromptTargetCapability | undefined) {
     setTargetKey(target?.key ?? "");
@@ -147,7 +170,7 @@ export default function AiToolsPage() {
         mediaType,
         targetKey,
         idea: normalizedIdea,
-        outputLanguage: locale,
+        outputLanguage: "en",
         aspectRatio,
         style,
         detailLevel,
@@ -156,6 +179,7 @@ export default function AiToolsPage() {
         idempotencyKey: crypto.randomUUID(),
       });
       setResult(next);
+      setSaved(true);
       setResultTab("prompt");
     } catch (reason) {
       if (reason instanceof ApiError) setFieldErrors(reason.fields);
@@ -177,6 +201,20 @@ export default function AiToolsPage() {
     window.setTimeout(() => setCopied(false), 1800);
   }
 
+  async function runResultAction(action: "improve" | "shorten" | "rebuild") {
+    if (!result || actionBusy) return;
+    setActionBusy(action); setError(""); setSaved(false);
+    try {
+      setResult(await transformPrompt(result.id, action));
+      setResultTab("prompt");
+      setSaved(true);
+    } catch (reason) {
+      setError(localizedApiError(reason, t));
+    } finally {
+      setActionBusy(null);
+    }
+  }
+
   function editIdea() {
     const field = document.getElementById("prompt-idea") as HTMLTextAreaElement | null;
     field?.scrollIntoView({ block: "center" });
@@ -186,10 +224,11 @@ export default function AiToolsPage() {
   const canSubmit = idea.trim().length >= 10 && Boolean(targetKey) && !busy;
 
   return <div className="prompt-builder-page">
-    <header className="student-page-heading prompt-heading">
-      <span className="lime-label">AI YORDAMCHI</span>
-      <h1>{t("promptBuilder.title")}</h1>
-      <p>{t("promptBuilder.subtitle")}</p>
+    <header className="student-page-heading prompt-heading with-action">
+      <div><span className="lime-label">AI YORDAMCHI</span>
+      <h1>Modelga mos professional prompt</h1>
+      <p>{t("promptBuilder.subtitle")}</p></div>
+      <Link className="button button-ghost" href="/app/ai-tools/history"><AppIcon name="clock"/> Tarix</Link>
     </header>
     <div className="prompt-notice"><span>i</span>{t("promptBuilder.notice")}</div>
     {error && <div className="form-error page-alert" role="alert">{error}</div>}
@@ -207,16 +246,16 @@ export default function AiToolsPage() {
             <button type="button" aria-pressed={mediaType === "video"} className={mediaType === "video" ? "active" : ""} onClick={() => switchMedia("video")}><AppIcon name="video"/>{t("promptBuilder.media.video")}</button>
           </div>
 
-          <fieldset className="target-selector model-strip">
+          <fieldset className="target-selector model-strip selected-model-strip">
             <legend>{t("promptBuilder.target.label")} <small>{visibleTargets.length} ta model</small></legend>
-            {loadingTargets ? <div className="target-skeletons"><i/><i/></div> : <div className="target-grid">
-              {visibleTargets.slice(0, 4).map((target) => <label className={target.key === targetKey ? "target-option selected" : "target-option"} key={target.key}>
-                <input type="radio" name="target" value={target.key} checked={target.key === targetKey} onChange={() => selectTarget(target)} />
-                <span className="target-logo">{target.label.slice(0, 1)}</span>
-                <span><b>{target.label}</b><small>{target.description}</small></span>
-                <i>{target.key === targetKey ? "✓" : ""}</i>
-              </label>)}
-              <button className="all-models-button" type="button" onClick={() => setModelPickerOpen(true)}><AppIcon name="settings"/>Barcha modellar</button>
+            {loadingTargets ? <div className="target-skeletons"><i/><i/></div> : <div className="selected-model-row">
+              {selectedTarget && <label className="target-option selected">
+                <input type="radio" name="target" value={selectedTarget.key} checked onChange={() => selectTarget(selectedTarget)} />
+                <span className="target-logo">{selectedTarget.label.slice(0, 1)}</span>
+                <span><b>{selectedTarget.label}</b><small>{selectedTarget.description}</small></span>
+                {selectedTarget.recommended && <em>Tavsiya</em>}<i>✓</i>
+              </label>}
+              <button className="all-models-button" type="button" onClick={() => setModelPickerOpen(true)}>Modelni almashtirish</button>
             </div>}
             {fieldErrors.target_key && <small className="field-error">{fieldErrors.target_key}</small>}
           </fieldset>
@@ -234,7 +273,7 @@ export default function AiToolsPage() {
           <div className="basic-settings">
             <label><span>{t("promptBuilder.settings.format")}</span><select value={aspectRatio} onChange={(event) => setAspectRatio(event.target.value)}>{selectedTarget?.aspectRatios.map((ratio) => <option key={ratio}>{ratio}</option>)}</select></label>
             {mediaType === "image" ? <label><span>{t("promptBuilder.settings.style")}</span><select value={style} onChange={(event) => setStyle(event.target.value)}><option value="cinematic">Kinolik</option><option value="photorealistic">Fotorealistik</option><option value="editorial">Editorial</option><option value="minimal">Minimal</option></select></label> : <label><span>{t("promptBuilder.settings.duration")}</span><select value={duration} onChange={(event) => setDuration(Number(event.target.value))}>{selectedTarget?.durationSeconds.map((seconds) => <option value={seconds} key={seconds}>{seconds}s</option>)}</select></label>}
-            <label><span>{t("promptBuilder.settings.language")}</span><select value={locale} disabled><option value={locale}>{locale.toUpperCase()}</option></select></label>
+            <label><span>{t("promptBuilder.settings.language")}</span><select value="en" disabled><option value="en">English</option></select></label>
             {mediaType === "image" ? <label><span>{t("promptBuilder.settings.detail")}</span><select value={detailLevel} onChange={(event) => setDetailLevel(event.target.value as "standard" | "high")}><option value="high">Yuqori</option><option value="standard">Standart</option></select></label> : <label><span>{t("promptBuilder.settings.shotMode")}</span><select value={shotMode} onChange={(event) => setShotMode(event.target.value as "single_shot" | "multi_shot")}><option value="single_shot">Single-shot</option>{selectedTarget?.supportsMultiShot && <option value="multi_shot">Multi-shot</option>}</select></label>}
           </div>
 
@@ -257,19 +296,21 @@ export default function AiToolsPage() {
         </form>
 
         <article className="panel prompt-result-card">
-          <div className="result-header"><h2>{t("promptBuilder.result.title")}</h2><div>{result && <><button type="button" onClick={editIdea}>{advancedLabels.edit}</button><button type="button" onClick={() => void copyResult()}><AppIcon name="copy"/>{copied ? t("promptBuilder.actions.copied") : t("promptBuilder.actions.copy")}</button><button type="button" onClick={() => document.querySelector<HTMLFormElement>(".builder-card")?.requestSubmit()} disabled={busy}>{t("promptBuilder.actions.rebuild")}</button></>}</div></div>
-          <div className="result-tabs" role="tablist"><button role="tab" aria-selected={resultTab === "prompt"} className={resultTab === "prompt" ? "active" : ""} onClick={() => setResultTab("prompt")}>{t("promptBuilder.result.mainPrompt")}</button><button role="tab" aria-selected={resultTab === "constraints"} className={resultTab === "constraints" ? "active" : ""} onClick={() => setResultTab("constraints")}>{t("promptBuilder.result.constraints")}</button>{result?.shotPlan.length ? <button role="tab" aria-selected={resultTab === "shots"} className={resultTab === "shots" ? "active" : ""} onClick={() => setResultTab("shots")}>{t("promptBuilder.result.shotPlan")}</button> : null}</div>
+          <div className="result-header"><h2>{t("promptBuilder.result.title")}</h2>{result && <span className="result-target-pill">● {result.targetLabel} · {result.profileVersion}</span>}</div>
+          <div className="result-tabs" role="tablist"><button role="tab" aria-selected={resultTab === "prompt"} className={resultTab === "prompt" ? "active" : ""} onClick={() => setResultTab("prompt")}>{t("promptBuilder.result.mainPrompt")}</button><button role="tab" aria-selected={resultTab === "constraints"} className={resultTab === "constraints" ? "active" : ""} onClick={() => setResultTab("constraints")}>{t("promptBuilder.result.constraints")}</button><button role="tab" aria-selected={resultTab === "sections"} className={resultTab === "sections" ? "active" : ""} onClick={() => setResultTab("sections")}>Tarkib</button>{result?.shotPlan.length ? <button role="tab" aria-selected={resultTab === "shots"} className={resultTab === "shots" ? "active" : ""} onClick={() => setResultTab("shots")}>{t("promptBuilder.result.shotPlan")}</button> : null}</div>
           {!result ? <div className="result-empty"><AppIcon name="file" size={46}/><div><h3>{t("promptBuilder.result.emptyTitle")}</h3><p>{t("promptBuilder.result.emptyDescription")}</p></div></div> : <div className="result-content" role="tabpanel">
             <div className="result-meta"><span>{result.targetLabel}</span><span>Profile {result.profileVersion}</span></div>
             {resultTab === "prompt" && <p>{result.finalPrompt}</p>}
             {resultTab === "constraints" && <ul>{result.sections.constraints.map((item) => <li key={item}>{item}</li>)}</ul>}
+            {resultTab === "sections" && <dl className="prompt-sections-list"><div><dt>Mavzu</dt><dd>{result.sections.subject}</dd></div><div><dt>Kompozitsiya</dt><dd>{result.sections.composition}</dd></div><div><dt>Kamera</dt><dd>{result.sections.camera}</dd></div><div><dt>Yorug‘lik</dt><dd>{result.sections.lighting}</dd></div><div><dt>Atmosfera</dt><dd>{result.sections.atmosphere}</dd></div></dl>}
             {resultTab === "shots" && <div className="shot-list">{result.shotPlan.map((shot) => <div key={shot.index}><b>Shot {shot.index}</b><p>{shot.framing} — {shot.subjectAction}</p><small>{shot.camera}</small></div>)}</div>}
           </div>}
+          {result && <div className="result-action-bar"><button className="primary" type="button" onClick={() => void copyResult()}><AppIcon name="copy"/>{copied ? t("promptBuilder.actions.copied") : t("promptBuilder.actions.copy")}</button><button type="button" disabled={Boolean(actionBusy)} onClick={() => void runResultAction("improve")}>✦ {actionBusy === "improve" ? "Yaxshilanmoqda…" : "Yaxshilash"}</button><button type="button" disabled={Boolean(actionBusy)} onClick={() => void runResultAction("shorten")}>Qisqartirish</button><button type="button" onClick={() => setSaved(true)}><AppIcon name="file"/>{saved ? "Saqlandi" : "Saqlash"}</button><button type="button" onClick={editIdea}>{advancedLabels.edit}</button></div>}
         </article>
       </div>
 
     </section>
     <div className="prompt-anatomy-bar"><b>Prompt tarkibi</b>{anatomy.map(([key]) => <span key={key}>✓ {t(`promptBuilder.anatomy.${key}`)}</span>)}</div>
-    {modelPickerOpen && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setModelPickerOpen(false); }}><section className="model-picker-modal" role="dialog" aria-modal="true" aria-labelledby="model-picker-title"><button className="modal-close" onClick={() => setModelPickerOpen(false)} aria-label="Yopish">×</button><header><h2 id="model-picker-title">AI modelini tanlang</h2><p>Prompt qaysi platformada ishlatilishini tanlang.</p></header><div className="model-picker-tabs"><button className="active">Barchasi <span>{targets.length}</span></button><button>Tasvir <span>{targets.filter((item) => item.mediaType === "image").length}</span></button><button>Video <span>{targets.filter((item) => item.mediaType === "video").length}</span></button></div><div className="model-picker-columns">{(["image", "video"] as const).map((type) => <div key={type}><h3>{type === "image" ? "TASVIR MODELLARI" : "VIDEO MODELLARI"}</h3>{targets.filter((target) => target.mediaType === type).map((target) => <button className={target.key === targetKey ? "selected" : ""} key={target.key} onClick={() => { switchMedia(type); selectTarget(target); setModelPickerOpen(false); }}><span className="target-logo">{target.label.slice(0, 1)}</span><div><b>{target.label}</b><small>{target.description}</small></div><em>{type === "image" ? "Tasvir" : "Video"}</em>{target.key === targetKey && <i>✓</i>}</button>)}</div>)}</div><footer><AppIcon name="shield"/><p>Yordamchi faqat modelga mos prompt yozadi. Media yaratmaydi.</p><button className="button button-ghost" onClick={() => setModelPickerOpen(false)}>Bekor qilish</button></footer></section></div>}
+    {modelPickerOpen && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setModelPickerOpen(false); }}><section className="model-picker-modal" role="dialog" aria-modal="true" aria-labelledby="model-picker-title"><button className="modal-close" onClick={() => setModelPickerOpen(false)} aria-label="Yopish">×</button><header><h2 id="model-picker-title">Modelni tanlang</h2><p>Prompt qaysi AI generator uchun tayyorlanishini tanlang.</p></header><div className="model-picker-toolbar"><label><span className="sr-only">Model qidirish</span><input autoFocus value={modelQuery} onChange={(event) => setModelQuery(event.target.value)} placeholder="Model nomi bo‘yicha qidirish" /></label><select aria-label="Saralash"><option>Tavsiya etilgan</option><option>Nomi bo‘yicha</option></select></div><div className="model-picker-tabs">{(["all", "image", "video"] as const).map((filter) => <button key={filter} className={modelFilter === filter ? "active" : ""} onClick={() => setModelFilter(filter)}>{filter === "all" ? "Barchasi" : filter === "image" ? "Tasvir" : "Video"} <span>{filter === "all" ? targets.length : targets.filter((item) => item.mediaType === filter).length}</span></button>)}</div><div className="model-picker-grid">{pickerTargets.map((target) => <button className={target.key === targetKey ? "selected" : ""} key={target.key} onClick={() => { switchMedia(target.mediaType); selectTarget(target); setModelPickerOpen(false); }}><span className="target-logo">{target.label.slice(0, 1)}</span><div><b>{target.label}</b><small>{target.description}</small><span>{target.supportsReferenceImages ? "Reference" : "Matn"}</span></div><em>{target.mediaType === "image" ? "Tasvir" : "Video"}</em>{target.key === targetKey && <i>✓</i>}</button>)}{!pickerTargets.length && <p className="model-empty">Mos model topilmadi.</p>}</div><footer><AppIcon name="shield"/><p>Faqat active va public modellar ko‘rsatiladi. Yangi modellar admin tomonidan qo‘shiladi.</p><button className="button button-ghost" onClick={() => setModelPickerOpen(false)}>Bekor qilish</button></footer></section></div>}
   </div>;
 }
